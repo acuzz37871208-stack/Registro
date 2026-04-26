@@ -1,0 +1,8 @@
+body{background:#0b0c10;color:#eaeaea;font-family:sans-serif}
+.app{max-width:420px;margin:auto;padding:20px}
+input,button{width:100%;padding:10px;margin:5px 0;background:#16171d;color:white;border:1px solid #2a2d3a}
+button{background:#00ffc6;color:black;border:none}
+.barra{height:10px;background:#222;border-radius:10px;overflow:hidden;margin:10px 0}
+#fill{height:100%;width:0}
+.item{padding:10px;border-bottom:1px solid #222}
+.big{font-size:24px;margin-bottom:5px}
