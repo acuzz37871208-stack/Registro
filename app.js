@@ -1,54 +1,124 @@
 import { db, ref, onValue } from "./firebase.js";
-const USER = "Matias";
+
+const DEFAULT_USER = "Matias";
+const LIMITE_MENSUAL = 20;
+
+const params = new URLSearchParams(window.location.search);
+const USER = params.get("persona") || DEFAULT_USER;
 
 const lista = document.getElementById("lista");
 const resumen = document.getElementById("resumen");
+const metricas = document.getElementById("metricas");
+const usuario = document.getElementById("usuario");
 const fill = document.getElementById("fill");
 
-onValue(ref(db,"entregas"), snap=>{
-  const data = snap.val()||{};
-  let arr = Object.values(data);
+const normalizar = (value) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
-  arr = arr.filter(e=> e.persona && e.persona
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .toLowerCase()
-  ===
-USER
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .toLowerCase());
+const gramos = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+};
 
-  arr.sort((a,b)=> new Date(b.fecha)-new Date(a.fecha));
+const formatoGramos = (value) => `${Number(value.toFixed(1))}g`;
 
-  lista.innerHTML = arr.map(e=>{
-    const f = new Date(e.fecha).toLocaleDateString("es-AR");
-    return `<div class="item">${f} · ${e.genetica} · ${e.gramos}g</div>`;
-  }).join("");
+const escapeHtml = (value) =>
+  String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 
+const tarjeta = (label, value, detail = "") => `
+  <article class="metric-card">
+    <span>${label}</span>
+    <strong>${value}</strong>
+    ${detail ? `<small>${detail}</small>` : ""}
+  </article>
+`;
+
+usuario.textContent = USER;
+
+onValue(ref(db, "entregas"), (snap) => {
+  const data = snap.val() || {};
   const now = new Date();
   const mes = now.getMonth();
+  const anio = now.getFullYear();
+  const diasDelMes = new Date(anio, mes + 1, 0).getDate();
+  const diaActual = now.getDate();
 
-  const delMes = arr.filter(e=>{
-    const d = new Date(e.fecha);
-    return d.getMonth()===mes;
-  });
+  const entregas = Object.values(data)
+    .filter((entrega) => normalizar(entrega.persona) === normalizar(USER))
+    .map((entrega) => ({
+      ...entrega,
+      gramos: gramos(entrega.gramos),
+      fechaDate: new Date(entrega.fecha),
+    }))
+    .filter((entrega) => !Number.isNaN(entrega.fechaDate.getTime()))
+    .sort((a, b) => b.fechaDate - a.fechaDate);
 
-  const total = delMes.reduce((a,b)=>a+b.gramos,0);
-  const limite = 20;
-  const restante = limite-total;
+  const delMes = entregas.filter((entrega) =>
+    entrega.fechaDate.getMonth() === mes &&
+    entrega.fechaDate.getFullYear() === anio
+  );
 
-  let estado="OK";
-  if(total===limite) estado="LIMITE";
-  if(total>limite) estado="EXCEDIDO";
+  const total = delMes.reduce((sum, entrega) => sum + entrega.gramos, 0);
+  const restante = Math.max(0, LIMITE_MENSUAL - total);
+  const porcentaje = Math.min(100, (total / LIMITE_MENSUAL) * 100);
+  const promedioEntrega = delMes.length ? total / delMes.length : 0;
+  const proyeccion = diaActual ? (total / diaActual) * diasDelMes : total;
+  const ultima = entregas[0];
+
+  let estado = "OK";
+  let estadoClass = "ok";
+  if (total === LIMITE_MENSUAL) {
+    estado = "LIMITE";
+    estadoClass = "limite";
+  }
+  if (total > LIMITE_MENSUAL) {
+    estado = "EXCEDIDO";
+    estadoClass = "excedido";
+  }
 
   resumen.innerHTML = `
-    <div class="big">${total}g / ${limite}g</div>
-    <div>Restante: ${restante>0?restante:0}g</div>
-    <div>${estado}</div>
+    <div>
+      <span class="label">Este mes</span>
+      <div class="big">${formatoGramos(total)} / ${LIMITE_MENSUAL}g</div>
+      <p>Restante: ${formatoGramos(restante)}</p>
+    </div>
+    <strong class="estado ${estadoClass}">${estado}</strong>
   `;
 
-  const pct = Math.min(100,total/limite*100);
-  fill.style.width = pct+"%";
-  fill.style.background = total>limite?"red":"#00ffc6";
+  metricas.innerHTML =
+    tarjeta("Entregas del mes", delMes.length, "registros cargados") +
+    tarjeta("Promedio", formatoGramos(promedioEntrega), "por entrega") +
+    tarjeta("Proyeccion", formatoGramos(proyeccion), "al cierre del mes") +
+    tarjeta(
+      "Ultima entrega",
+      ultima ? formatoGramos(ultima.gramos) : "0g",
+      ultima ? ultima.fechaDate.toLocaleDateString("es-AR") : "sin registros"
+    );
+
+  lista.innerHTML = entregas.length
+    ? entregas.map((entrega) => {
+        const fecha = entrega.fechaDate.toLocaleDateString("es-AR");
+        return `
+          <div class="item">
+            <div>
+              <strong>${escapeHtml(entrega.genetica || "Sin genetica")}</strong>
+              <span>${fecha}</span>
+            </div>
+            <b>${formatoGramos(entrega.gramos)}</b>
+          </div>
+        `;
+      }).join("")
+    : `<div class="empty">Todavia no hay entregas para ${escapeHtml(USER)}.</div>`;
+
+  fill.style.width = `${porcentaje}%`;
+  fill.style.background = total > LIMITE_MENSUAL ? "#ff5c7a" : "#00ffc6";
 });

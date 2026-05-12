@@ -1,8 +1,39 @@
-body{background:#0b0c10;color:#eaeaea;font-family:sans-serif}
-.app{max-width:420px;margin:auto;padding:20px}
-input,button{width:100%;padding:10px;margin:5px 0;background:#16171d;color:white;border:1px solid #2a2d3a}
-button{background:#00ffc6;color:black;border:none}
-.barra{height:10px;background:#222;border-radius:10px;overflow:hidden;margin:10px 0}
-#fill{height:100%;width:0}
-.item{padding:10px;border-bottom:1px solid #222}
-.big{font-size:24px;margin-bottom:5px}
+*{box-sizing:border-box}
+body{margin:0;background:#0b0c10;color:#eaeaea;font-family:Arial,sans-serif}
+.app{max-width:520px;margin:0 auto;padding:24px 18px 36px}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px}
+.eyebrow{margin:0 0 4px;color:#8b93a7;font-size:12px;text-transform:uppercase;letter-spacing:0}
+h1,h2{margin:0}
+h1{font-size:32px}
+h2{font-size:18px;margin-bottom:10px}
+.usuario{padding:8px 10px;border:1px solid #2a2d3a;border-radius:8px;color:#00ffc6;background:#12141b;font-size:14px}
+.resumen{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px;border:1px solid #282c37;border-radius:8px;background:#14161d}
+.label{color:#8b93a7;font-size:13px}
+.big{font-size:30px;font-weight:800;margin:4px 0}
+.resumen p{margin:0;color:#c8ceda}
+.estado{padding:8px 10px;border-radius:8px;font-size:12px}
+.estado.ok{background:#093d34;color:#00ffc6}
+.estado.limite{background:#493b11;color:#ffd166}
+.estado.excedido{background:#4a1724;color:#ff8aa0}
+.barra{height:12px;background:#222631;border-radius:999px;overflow:hidden;margin:14px 0 18px}
+#fill{height:100%;width:0;transition:width .25s ease}
+.metricas{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px}
+.metric-card{min-height:92px;padding:13px;border:1px solid #282c37;border-radius:8px;background:#12141b}
+.metric-card span{display:block;color:#8b93a7;font-size:12px;margin-bottom:8px}
+.metric-card strong{display:block;font-size:22px}
+.metric-card small{display:block;color:#c8ceda;margin-top:6px}
+.historial{margin-top:4px}
+.item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #222631}
+.item strong,.item span{display:block}
+.item span{color:#8b93a7;font-size:13px;margin-top:3px}
+.item b{color:#00ffc6;white-space:nowrap}
+.empty{padding:18px;border:1px dashed #343947;border-radius:8px;color:#9aa2b5;text-align:center}
+input,button{width:100%;padding:10px;margin:5px 0;background:#16171d;color:white;border:1px solid #2a2d3a;border-radius:6px}
+button{background:#00ffc6;color:black;border:none;font-weight:700;cursor:pointer}
+@media (max-width:420px){
+  .top{display:block}
+  .usuario{display:inline-block;margin-top:10px}
+  .resumen{display:block}
+  .estado{display:inline-block;margin-top:12px}
+  .metricas{grid-template-columns:1fr}
+}
