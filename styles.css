@@ -17,7 +17,7 @@ h2{font-size:18px;margin-bottom:10px}
 .estado.excedido{background:#4a1724;color:#ff8aa0}
 .barra{height:12px;background:#222631;border-radius:999px;overflow:hidden;margin:14px 0 18px}
 #fill{height:100%;width:0;transition:width .25s ease}
-.metricas{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px}
+.metricas{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px}
 .metric-card{min-height:92px;padding:13px;border:1px solid #282c37;border-radius:8px;background:#12141b}
 .metric-card span{display:block;color:#8b93a7;font-size:12px;margin-bottom:8px}
 .metric-card strong{display:block;font-size:22px}

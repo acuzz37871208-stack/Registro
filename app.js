@@ -49,8 +49,6 @@ onValue(ref(db, "entregas"), (snap) => {
   const now = new Date();
   const mes = now.getMonth();
   const anio = now.getFullYear();
-  const diasDelMes = new Date(anio, mes + 1, 0).getDate();
-  const diaActual = now.getDate();
 
   const entregas = Object.values(data)
     .filter((entrega) => normalizar(entrega.persona) === normalizar(USER))
@@ -71,7 +69,6 @@ onValue(ref(db, "entregas"), (snap) => {
   const restante = Math.max(0, LIMITE_MENSUAL - total);
   const porcentaje = Math.min(100, (total / LIMITE_MENSUAL) * 100);
   const promedioEntrega = delMes.length ? total / delMes.length : 0;
-  const proyeccion = diaActual ? (total / diaActual) * diasDelMes : total;
   const ultima = entregas[0];
 
   let estado = "OK";
@@ -97,7 +94,6 @@ onValue(ref(db, "entregas"), (snap) => {
   metricas.innerHTML =
     tarjeta("Entregas del mes", delMes.length, "registros cargados") +
     tarjeta("Promedio", formatoGramos(promedioEntrega), "por entrega") +
-    tarjeta("Proyeccion", formatoGramos(proyeccion), "al cierre del mes") +
     tarjeta(
       "Ultima entrega",
       ultima ? formatoGramos(ultima.gramos) : "0g",
