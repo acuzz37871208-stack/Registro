@@ -8,7 +8,6 @@ const USER = params.get("persona") || DEFAULT_USER;
 
 const lista = document.getElementById("lista");
 const resumen = document.getElementById("resumen");
-const metricas = document.getElementById("metricas");
 const entregasResumen = document.getElementById("entregasResumen");
 const usuario = document.getElementById("usuario");
 const fill = document.getElementById("fill");
@@ -34,27 +33,6 @@ const escapeHtml = (value) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-
-const sparkline = (values) => {
-  const width = 220;
-  const height = 54;
-  const max = Math.max(LIMITE_MENSUAL, ...values, 1);
-  const points = values.length > 1 ? values : [0, values[0] || 0];
-  const step = points.length > 1 ? width / (points.length - 1) : width;
-  const coords = points.map((value, index) => {
-    const x = Number((index * step).toFixed(2));
-    const y = Number((height - (value / max) * height).toFixed(2));
-    return `${x},${y}`;
-  });
-  const area = `0,${height} ${coords.join(" ")} ${width},${height}`;
-
-  return `
-    <svg class="sparkline" viewBox="0 0 ${width} ${height}" role="img" aria-label="Evolucion mensual acumulada">
-      <polygon points="${area}"></polygon>
-      <polyline points="${coords.join(" ")}"></polyline>
-    </svg>
-  `;
-};
 
 usuario.textContent = USER;
 
@@ -82,14 +60,6 @@ onValue(ref(db, "entregas"), (snap) => {
   const total = delMes.reduce((sum, entrega) => sum + entrega.gramos, 0);
   const restante = Math.max(0, LIMITE_MENSUAL - total);
   const porcentaje = Math.min(100, (total / LIMITE_MENSUAL) * 100);
-  const promedioEntrega = delMes.length ? total / delMes.length : 0;
-  const ultima = entregas[0];
-  const delMesAsc = [...delMes].sort((a, b) => a.fechaDate - b.fechaDate);
-  let acumulado = 0;
-  const tendencia = [0, ...delMesAsc.map((entrega) => {
-    acumulado += entrega.gramos;
-    return acumulado;
-  })];
 
   let estado = "OK";
   let estadoClass = "ok";
@@ -109,28 +79,6 @@ onValue(ref(db, "entregas"), (snap) => {
       <p>Restante: ${formatoGramos(restante)}</p>
     </div>
     <strong class="estado ${estadoClass}">${estado}</strong>
-  `;
-
-  metricas.innerHTML = `
-    <div class="market-header">
-      <div>
-        <span>Indice mensual</span>
-        <strong>${formatoGramos(total)}</strong>
-      </div>
-      <small>${delMes.length} ${delMes.length === 1 ? "registro" : "registros"}</small>
-    </div>
-    ${sparkline(tendencia)}
-    <div class="market-grid">
-      <div>
-        <span>Promedio</span>
-        <strong>${formatoGramos(promedioEntrega)}</strong>
-      </div>
-      <div>
-        <span>Ultima</span>
-        <strong>${ultima ? formatoGramos(ultima.gramos) : "0g"}</strong>
-        <small>${ultima ? ultima.fechaDate.toLocaleDateString("es-AR") : "sin registros"}</small>
-      </div>
-    </div>
   `;
 
   entregasResumen.textContent = entregas.length
