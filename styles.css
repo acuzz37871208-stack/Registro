@@ -17,12 +17,22 @@ h2{font-size:18px;margin-bottom:10px}
 .estado.excedido{background:#4a1724;color:#ff8aa0}
 .barra{height:12px;background:#222631;border-radius:999px;overflow:hidden;margin:14px 0 18px}
 #fill{height:100%;width:0;transition:width .25s ease}
-.metricas{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px}
-.metric-card{min-height:92px;padding:13px;border:1px solid #282c37;border-radius:8px;background:#12141b}
-.metric-card span{display:block;color:#8b93a7;font-size:12px;margin-bottom:8px}
-.metric-card strong{display:block;font-size:22px}
-.metric-card small{display:block;color:#c8ceda;margin-top:6px}
-.historial{margin-top:4px}
+.metricas{padding:14px;border:1px solid #282c37;border-radius:8px;background:#12141b;margin-bottom:14px}
+.metric-header,.metric-row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.metric-header{padding-bottom:10px;border-bottom:1px solid #222631;margin-bottom:4px}
+.metric-header span,.metric-row span{display:block;color:#8b93a7;font-size:12px}
+.metric-header strong{color:#00ffc6;font-size:13px}
+.metric-row{padding:10px 0;border-bottom:1px solid #1c202a}
+.metric-row:last-child{border-bottom:none;padding-bottom:0}
+.metric-row strong{font-size:18px;white-space:nowrap}
+.metric-row small{display:block;color:#c8ceda;margin-top:3px}
+.historial{margin-top:4px;border:1px solid #282c37;border-radius:8px;background:#12141b;overflow:hidden}
+.historial summary{display:flex;align-items:center;justify-content:space-between;gap:12px;list-style:none;padding:14px;cursor:pointer;color:#eaeaea}
+.historial summary::-webkit-details-marker{display:none}
+.historial summary span{font-weight:700}
+.historial summary small{color:#00ffc6}
+.historial[open] summary{border-bottom:1px solid #222631}
+#lista{padding:0 14px 4px}
 .item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #222631}
 .item strong,.item span{display:block}
 .item span{color:#8b93a7;font-size:13px;margin-top:3px}
@@ -35,5 +45,5 @@ button{background:#00ffc6;color:black;border:none;font-weight:700;cursor:pointer
   .usuario{display:inline-block;margin-top:10px}
   .resumen{display:block}
   .estado{display:inline-block;margin-top:12px}
-  .metricas{grid-template-columns:1fr}
+  .metric-row strong{font-size:17px}
 }

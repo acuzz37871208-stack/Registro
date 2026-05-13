@@ -9,6 +9,7 @@ const USER = params.get("persona") || DEFAULT_USER;
 const lista = document.getElementById("lista");
 const resumen = document.getElementById("resumen");
 const metricas = document.getElementById("metricas");
+const entregasResumen = document.getElementById("entregasResumen");
 const usuario = document.getElementById("usuario");
 const fill = document.getElementById("fill");
 
@@ -34,12 +35,14 @@ const escapeHtml = (value) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
-const tarjeta = (label, value, detail = "") => `
-  <article class="metric-card">
-    <span>${label}</span>
+const filaMetrica = (label, value, detail = "") => `
+  <div class="metric-row">
+    <div>
+      <span>${label}</span>
+      ${detail ? `<small>${detail}</small>` : ""}
+    </div>
     <strong>${value}</strong>
-    ${detail ? `<small>${detail}</small>` : ""}
-  </article>
+  </div>
 `;
 
 usuario.textContent = USER;
@@ -91,14 +94,22 @@ onValue(ref(db, "entregas"), (snap) => {
     <strong class="estado ${estadoClass}">${estado}</strong>
   `;
 
-  metricas.innerHTML =
-    tarjeta("Entregas del mes", delMes.length, "registros cargados") +
-    tarjeta("Promedio", formatoGramos(promedioEntrega), "por entrega") +
-    tarjeta(
+  metricas.innerHTML = `
+    <div class="metric-header">
+      <span>Panel de metricas</span>
+      <strong>${delMes.length} ${delMes.length === 1 ? "registro" : "registros"}</strong>
+    </div>
+    ${filaMetrica("Promedio", formatoGramos(promedioEntrega), "por entrega")}
+    ${filaMetrica(
       "Ultima entrega",
       ultima ? formatoGramos(ultima.gramos) : "0g",
       ultima ? ultima.fechaDate.toLocaleDateString("es-AR") : "sin registros"
-    );
+    )}
+  `;
+
+  entregasResumen.textContent = entregas.length
+    ? `${entregas.length} ${entregas.length === 1 ? "registro" : "registros"}`
+    : "sin registros";
 
   lista.innerHTML = entregas.length
     ? entregas.map((entrega) => {
