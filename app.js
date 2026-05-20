@@ -150,17 +150,18 @@ const render = () => {
 
   const total = delMes.reduce((sum, entrega) => sum + entrega.gramos, 0);
   const pendiente = pendientesDelMes.reduce((sum, registro) => sum + registro.gramos, 0);
-  const restante = Math.max(0, LIMITE_MENSUAL - total);
-  const restantePedido = Math.max(0, LIMITE_MENSUAL - total - pendiente);
-  const porcentaje = Math.min(100, (total / LIMITE_MENSUAL) * 100);
+  const comprometido = total + pendiente;
+  const restante = Math.max(0, LIMITE_MENSUAL - comprometido);
+  const restantePedido = restante;
+  const porcentaje = Math.min(100, (comprometido / LIMITE_MENSUAL) * 100);
 
   let estado = "OK";
   let estadoClass = "ok";
-  if (total === LIMITE_MENSUAL) {
+  if (comprometido === LIMITE_MENSUAL) {
     estado = "LIMITE";
     estadoClass = "limite";
   }
-  if (total > LIMITE_MENSUAL) {
+  if (comprometido > LIMITE_MENSUAL) {
     estado = "EXCEDIDO";
     estadoClass = "excedido";
   }
@@ -168,7 +169,7 @@ const render = () => {
   resumen.innerHTML = `
     <div>
       <span class="label">Este mes</span>
-      <div class="big">${formatoGramos(total)} / ${LIMITE_MENSUAL}g</div>
+      <div class="big">${formatoGramos(comprometido)} / ${LIMITE_MENSUAL}g</div>
       <p>Restante: ${formatoGramos(restante)}</p>
       ${pendiente ? `<p class="muted">Pendiente: ${formatoGramos(pendiente)}</p>` : ""}
     </div>
