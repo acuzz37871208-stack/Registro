@@ -198,7 +198,7 @@ const render = () => {
     : `<div class="empty">Todavia no hay entregas para ${escapeHtml(USER)}.</div>`;
 
   fill.style.width = `${porcentaje}%`;
-  fill.style.background = total > LIMITE_MENSUAL ? "#ff5c7a" : "#00ffc6";
+  fill.style.background = comprometido > LIMITE_MENSUAL ? "#ff5c7a" : "#00ffc6";
 };
 
 usuario.textContent = USER;
