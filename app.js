@@ -57,6 +57,18 @@ const perteneceAUsuario = (registro) => normalizar(registro.persona) === normali
 const esDelMes = (registro, mes, anio) =>
   registro.fechaDate.getMonth() === mes && registro.fechaDate.getFullYear() === anio;
 
+const notificarPedido = async (pedido) => {
+  try {
+    await fetch("/api/notificar-pedido", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pedido),
+    });
+  } catch (error) {
+    console.warn("No se pudo enviar la notificacion:", error);
+  }
+};
+
 const renderPedido = ({ restantePedido, pendientesDelMes }) => {
   const opcionesGenetica = GENETICAS.map(
     (genetica) => `<option value="${escapeHtml(genetica)}">${escapeHtml(genetica)}</option>`
@@ -105,7 +117,7 @@ const renderPedido = ({ restantePedido, pendientesDelMes }) => {
     render();
 
     try {
-      await push(ref(db, "pedidos"), {
+      const nuevoPedido = {
         persona: USER,
         genetica,
         gramos: cantidad,
@@ -113,7 +125,11 @@ const renderPedido = ({ restantePedido, pendientesDelMes }) => {
         fecha: new Date().toISOString(),
         mes: mesActual(),
         avisoAdmin: "pendiente",
-      });
+      };
+
+      await push(ref(db, "pedidos"), nuevoPedido);
+      await notificarPedido(nuevoPedido);
+
       pedidoEnCurso = false;
       mensajePedido = "Pedido registrado. Te aviso cuando este coordinado.";
       render();
