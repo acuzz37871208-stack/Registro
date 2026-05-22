@@ -19,10 +19,10 @@ const buildMessage = (pedido) => {
 
 const sendTelegram = ({ token, chatId, text }) =>
   new Promise((resolve, reject) => {
-    const body = JSON.stringify({
+    const body = new URLSearchParams({
       chat_id: chatId,
       text,
-    });
+    }).toString();
 
     const request = https.request(
       {
@@ -30,7 +30,7 @@ const sendTelegram = ({ token, chatId, text }) =>
         path: `/bot${token}/sendMessage`,
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
           "Content-Length": Buffer.byteLength(body),
         },
       },
@@ -63,8 +63,8 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
 
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
+  const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
 
   if (!token || !chatId) {
     return res.status(200).json({ ok: true, notification: "disabled" });
