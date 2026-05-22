@@ -1,4 +1,4 @@
-const TELEGRAM_API = "https://api.telegram.org";
+const https = require("https");
 
 const formatGramos = (value) => {
   const number = Number(value);
@@ -17,6 +17,46 @@ const buildMessage = (pedido) => {
   ].join("\n");
 };
 
+const sendTelegram = ({ token, chatId, text }) =>
+  new Promise((resolve, reject) => {
+    const body = JSON.stringify({
+      chat_id: chatId,
+      text,
+    });
+
+    const request = https.request(
+      {
+        hostname: "api.telegram.org",
+        path: `/bot${token}/sendMessage`,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body),
+        },
+      },
+      (response) => {
+        let data = "";
+
+        response.on("data", (chunk) => {
+          data += chunk;
+        });
+
+        response.on("end", () => {
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            resolve(data);
+            return;
+          }
+
+          reject(new Error(data || `Telegram status ${response.statusCode}`));
+        });
+      }
+    );
+
+    request.on("error", reject);
+    request.write(body);
+    request.end();
+  });
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -31,24 +71,19 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: buildMessage(req.body || {}),
-      }),
+    await sendTelegram({
+      token,
+      chatId,
+      text: buildMessage(req.body || {}),
     });
-
-    if (!response.ok) {
-      const detail = await response.text();
-      console.error("Telegram error:", detail);
-      return res.status(502).json({ ok: false, error: "Telegram request failed" });
-    }
 
     return res.status(200).json({ ok: true });
   } catch (error) {
-    console.error("Notification error:", error);
-    return res.status(500).json({ ok: false, error: "Notification failed" });
+    console.error("Notification error:", error.message);
+    return res.status(502).json({
+      ok: false,
+      error: "Telegram request failed",
+      detail: error.message,
+    });
   }
 };
