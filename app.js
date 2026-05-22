@@ -2,7 +2,7 @@ import { db, ref, push, onValue } from "./firebase.js";
 
 const DEFAULT_USER = "Matias";
 const LIMITE_MENSUAL = 20;
-const GENETICAS = ["Craig"];
+const DEFAULT_GENETICAS = ["Craig"];
 
 const params = new URLSearchParams(window.location.search);
 const USER = params.get("persona") || DEFAULT_USER;
@@ -16,6 +16,7 @@ const fill = document.getElementById("fill");
 
 let entregasRaw = {};
 let pedidosRaw = {};
+let geneticasRaw = {};
 let pedidoEnCurso = false;
 let mensajePedido = "";
 
@@ -70,7 +71,8 @@ const notificarPedido = async (pedido) => {
 };
 
 const renderPedido = ({ restantePedido, pendientesDelMes }) => {
-  const opcionesGenetica = GENETICAS.map(
+  const geneticas = Object.values(geneticasRaw).length ? Object.values(geneticasRaw) : DEFAULT_GENETICAS;
+  const opcionesGenetica = geneticas.map(
     (genetica) => `<option value="${escapeHtml(genetica)}">${escapeHtml(genetica)}</option>`
   ).join("");
   const max = Math.max(0, Number(restantePedido.toFixed(1)));
@@ -226,5 +228,10 @@ onValue(ref(db, "entregas"), (snap) => {
 
 onValue(ref(db, "pedidos"), (snap) => {
   pedidosRaw = snap.val() || {};
+  render();
+});
+
+onValue(ref(db, "geneticas"), (snap) => {
+  geneticasRaw = snap.val() || {};
   render();
 });

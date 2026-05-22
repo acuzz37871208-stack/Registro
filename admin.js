@@ -1,6 +1,7 @@
 import { db, ref, push, onValue, update } from "./firebase.js";
 
 const pedidos = document.getElementById("pedidos");
+const geneticas = document.getElementById("geneticas");
 
 const gramos = (value) => {
   const number = Number(value);
@@ -43,6 +44,23 @@ document.getElementById("guardar").onclick = async () => {
   } catch (error) {
     console.error("Error al guardar:", error);
     alert("No se pudo guardar. Revisa la consola.");
+  }
+};
+
+document.getElementById("agregarGenetica").onclick = async () => {
+  const nombre = document.getElementById("nuevaGenetica").value.trim();
+
+  if (!nombre) {
+    alert("Ingresar genetica");
+    return;
+  }
+
+  try {
+    await push(ref(db, "geneticas"), nombre);
+    document.getElementById("nuevaGenetica").value = "";
+  } catch (error) {
+    console.error("Error al agregar genetica:", error);
+    alert("No se pudo agregar la genetica.");
   }
 };
 
@@ -104,4 +122,13 @@ onValue(ref(db, "pedidos"), (snap) => {
       boton.onclick = () => confirmarPedido(pedido.id, pedido);
     }
   });
+});
+
+onValue(ref(db, "geneticas"), (snap) => {
+  const data = snap.val() || {};
+  const items = Object.values(data).sort((a, b) => String(a).localeCompare(String(b)));
+
+  geneticas.innerHTML = items.length
+    ? items.map((genetica) => `<div class="tag">${escapeHtml(genetica)}</div>`).join("")
+    : `<div class="empty">Todavia no hay geneticas cargadas. Se usa Craig por defecto.</div>`;
 });

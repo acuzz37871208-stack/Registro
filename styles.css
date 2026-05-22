@@ -42,6 +42,9 @@ button:disabled,input:disabled,select:disabled{opacity:.55;cursor:not-allowed}
 .pedido label{display:block;color:#8b93a7;font-size:12px}
 .pedido-msg{min-height:18px;margin:8px 0 0;color:#00ffc6;font-size:13px}
 .admin-section{margin-top:22px}
+.inline-form{display:grid;grid-template-columns:1fr auto;gap:8px}
+.inline-form button{width:auto}
+.tag{display:inline-block;margin:6px 6px 0 0;padding:7px 10px;border:1px solid #2a2d3a;border-radius:999px;background:#12141b;color:#eaeaea;font-size:13px}
 .pedido-admin{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #222631}
 .pedido-admin strong,.pedido-admin span,.pedido-admin small{display:block}
 .pedido-admin span{color:#eaeaea;margin-top:3px}
@@ -53,6 +56,8 @@ button:disabled,input:disabled,select:disabled{opacity:.55;cursor:not-allowed}
   .resumen{display:block}
   .estado{display:inline-block;margin-top:12px}
   .pedido-grid{grid-template-columns:1fr}
+  .inline-form{grid-template-columns:1fr}
+  .inline-form button{width:100%}
   .pedido-admin{display:block}
   .pedido-admin button{width:100%;margin-top:10px}
 }
