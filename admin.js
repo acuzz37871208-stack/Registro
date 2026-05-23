@@ -18,45 +18,44 @@ const escapeHtml = (value) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
-document.getElementById("guardar").onclick = async () => {
-  const persona = document.getElementById("persona").value.trim();
-  const genetica = document.getElementById("genetica").value.trim();
-  const cantidad = parseFloat(document.getElementById("gramos").value);
-
-  if (!persona || !genetica || isNaN(cantidad)) {
-    alert("Completar datos");
-    return;
+const normalizarGenetica = (id, value) => {
+  if (typeof value === "string") {
+    return {
+      id,
+      nombre: value,
+      paciente: "Matias",
+      gramos: 20,
+      activa: true,
+    };
   }
 
-  try {
-    await push(ref(db, "entregas"), {
-      persona,
-      genetica,
-      gramos: cantidad,
-      fecha: new Date().toISOString(),
-    });
-
-    document.getElementById("persona").value = "";
-    document.getElementById("genetica").value = "";
-    document.getElementById("gramos").value = "";
-
-    alert("Guardado correctamente");
-  } catch (error) {
-    console.error("Error al guardar:", error);
-    alert("No se pudo guardar. Revisa la consola.");
-  }
+  return {
+    id,
+    nombre: value.nombre || value.genetica || "",
+    paciente: value.paciente || "Matias",
+    gramos: gramos(value.gramos || value.cupo || 0),
+    activa: value.activa !== false,
+  };
 };
 
 document.getElementById("agregarGenetica").onclick = async () => {
+  const paciente = document.getElementById("pacienteGenetica").value.trim();
   const nombre = document.getElementById("nuevaGenetica").value.trim();
+  const cantidad = gramos(document.getElementById("gramosGenetica").value);
 
-  if (!nombre) {
-    alert("Ingresar genetica");
+  if (!paciente || !nombre || cantidad <= 0) {
+    alert("Completar paciente, genetica y gramos");
     return;
   }
 
   try {
-    await push(ref(db, "geneticas"), nombre);
+    await push(ref(db, "geneticas"), {
+      paciente,
+      nombre,
+      gramos: cantidad,
+      activa: true,
+      fecha: new Date().toISOString(),
+    });
     document.getElementById("nuevaGenetica").value = "";
   } catch (error) {
     console.error("Error al agregar genetica:", error);
@@ -126,9 +125,19 @@ onValue(ref(db, "pedidos"), (snap) => {
 
 onValue(ref(db, "geneticas"), (snap) => {
   const data = snap.val() || {};
-  const items = Object.values(data).sort((a, b) => String(a).localeCompare(String(b)));
+  const items = Object.entries(data)
+    .map(([id, value]) => normalizarGenetica(id, value))
+    .filter((genetica) => genetica.nombre)
+    .sort((a, b) => a.paciente.localeCompare(b.paciente) || a.nombre.localeCompare(b.nombre));
 
   geneticas.innerHTML = items.length
-    ? items.map((genetica) => `<div class="tag">${escapeHtml(genetica)}</div>`).join("")
-    : `<div class="empty">Todavia no hay geneticas cargadas. Se usa Craig por defecto.</div>`;
+    ? items.map((genetica) => `
+        <div class="genetica-row">
+          <div>
+            <strong>${escapeHtml(genetica.nombre)}</strong>
+            <span>${escapeHtml(genetica.paciente)} · ${formatoGramos(genetica.gramos)}</span>
+          </div>
+        </div>
+      `).join("")
+    : `<div class="empty">Todavia no hay geneticas habilitadas.</div>`;
 });

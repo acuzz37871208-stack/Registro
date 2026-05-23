@@ -53,6 +53,24 @@ const normalizarEntrega = (entrega) => ({
   fechaDate: new Date(entrega.fecha),
 });
 
+const normalizarGenetica = (value) => {
+  if (typeof value === "string") {
+    return {
+      nombre: value,
+      paciente: DEFAULT_USER,
+      gramos: LIMITE_MENSUAL,
+      activa: true,
+    };
+  }
+
+  return {
+    nombre: value.nombre || value.genetica || "",
+    paciente: value.paciente || DEFAULT_USER,
+    gramos: gramos(value.gramos || value.cupo || LIMITE_MENSUAL),
+    activa: value.activa !== false,
+  };
+};
+
 const perteneceAUsuario = (registro) => normalizar(registro.persona) === normalizar(USER);
 
 const esDelMes = (registro, mes, anio) =>
@@ -70,19 +88,41 @@ const notificarPedido = async (pedido) => {
   }
 };
 
-const renderPedido = ({ restantePedido, pendientesDelMes }) => {
-  const geneticas = Object.values(geneticasRaw).length ? Object.values(geneticasRaw) : DEFAULT_GENETICAS;
+const renderPedido = ({ restantePedido, pendientesDelMes, entregasDelMes }) => {
+  const geneticasBase = Object.values(geneticasRaw).length
+    ? Object.values(geneticasRaw).map(normalizarGenetica)
+    : DEFAULT_GENETICAS.map((nombre) => ({ nombre, paciente: USER, gramos: LIMITE_MENSUAL, activa: true }));
+
+  const geneticas = geneticasBase
+    .filter((genetica) => genetica.activa && normalizar(genetica.paciente) === normalizar(USER))
+    .map((genetica) => {
+      const entregado = entregasDelMes
+        .filter((entrega) => normalizar(entrega.genetica) === normalizar(genetica.nombre))
+        .reduce((sum, entrega) => sum + entrega.gramos, 0);
+      const pendiente = pendientesDelMes
+        .filter((pedido) => normalizar(pedido.genetica) === normalizar(genetica.nombre))
+        .reduce((sum, pedido) => sum + pedido.gramos, 0);
+      const usado = entregado + pendiente;
+      const disponible = Math.max(0, Math.min(restantePedido, genetica.gramos - usado));
+
+      return {
+        ...genetica,
+        disponible,
+      };
+    })
+    .filter((genetica) => genetica.disponible > 0);
+
   const opcionesGenetica = geneticas.map(
-    (genetica) => `<option value="${escapeHtml(genetica)}">${escapeHtml(genetica)}</option>`
+    (genetica) => `<option value="${escapeHtml(genetica.nombre)}" data-max="${genetica.disponible}">${escapeHtml(genetica.nombre)} · ${formatoGramos(genetica.disponible)}</option>`
   ).join("");
-  const max = Math.max(0, Number(restantePedido.toFixed(1)));
+  const max = Math.max(0, Number((geneticas[0]?.disponible || 0).toFixed(1)));
   const disabled = max <= 0 || pedidoEnCurso ? "disabled" : "";
 
   pedido.innerHTML = `
     <div class="pedido-header">
       <div>
         <span class="label">Pedido mensual</span>
-        <strong>${max > 0 ? `Disponible: ${formatoGramos(max)}` : "Cupo mensual agotado"}</strong>
+        <strong>${max > 0 ? `Disponible: ${formatoGramos(restantePedido)}` : "Sin cupo habilitado"}</strong>
       </div>
       <small>${pendientesDelMes.length ? `${pendientesDelMes.length} ${pendientesDelMes.length === 1 ? "pendiente" : "pendientes"}` : "sin pendientes"}</small>
     </div>
@@ -100,16 +140,25 @@ const renderPedido = ({ restantePedido, pendientesDelMes }) => {
     <p id="pedidoMensaje" class="pedido-msg" role="status">${escapeHtml(mensajePedido)}</p>
   `;
 
+  const select = document.getElementById("pedidoGenetica");
+  const input = document.getElementById("pedidoGramos");
   const boton = document.getElementById("pedidoBtn");
   if (!boton || disabled) return;
+
+  select.onchange = () => {
+    const selectedMax = gramos(select.selectedOptions[0]?.dataset.max);
+    input.max = selectedMax;
+    input.value = Math.min(gramos(input.value), selectedMax) || Math.min(5, selectedMax);
+  };
 
   boton.onclick = async () => {
     const genetica = document.getElementById("pedidoGenetica").value;
     const cantidad = gramos(document.getElementById("pedidoGramos").value);
+    const selectedMax = gramos(document.getElementById("pedidoGenetica").selectedOptions[0]?.dataset.max);
     const mensaje = document.getElementById("pedidoMensaje");
 
-    if (!genetica || cantidad <= 0 || cantidad > max) {
-      mensajePedido = `Elegi una cantidad entre 1g y ${formatoGramos(max)}.`;
+    if (!genetica || cantidad <= 0 || cantidad > selectedMax) {
+      mensajePedido = `Elegi una cantidad entre 1g y ${formatoGramos(selectedMax)}.`;
       mensaje.textContent = mensajePedido;
       return;
     }
@@ -194,7 +243,7 @@ const render = () => {
     <strong class="estado ${estadoClass}">${estado}</strong>
   `;
 
-  renderPedido({ restantePedido, pendientesDelMes });
+  renderPedido({ restantePedido, pendientesDelMes, entregasDelMes: delMes });
 
   entregasResumen.textContent = entregas.length
     ? `${entregas.length} ${entregas.length === 1 ? "registro" : "registros"}`
