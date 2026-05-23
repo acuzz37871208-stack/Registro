@@ -9,6 +9,15 @@
 <body>
 
 <main class="app">
+<section id="acceso" class="acceso">
+<h1>Reprocann</h1>
+<p>Ingresá tu clave de 4 dígitos.</p>
+<input id="pinInput" type="password" inputmode="numeric" maxlength="4" placeholder="Clave">
+<button id="pinBtn">Ingresar</button>
+<p id="pinMensaje" class="pedido-msg" role="status"></p>
+</section>
+
+<section id="panel" class="hidden">
 <header class="top">
 <div>
 <p class="eyebrow">Seguimiento mensual</p>
@@ -29,6 +38,7 @@
 </summary>
 <div id="lista"></div>
 </details>
+</section>
 </main>
 
 <script type="module" src="./app.js"></script>

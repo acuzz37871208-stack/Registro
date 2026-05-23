@@ -12,8 +12,17 @@
 <h2>Panel Admin</h2>
 
 <section class="admin-section">
+<h2>Pacientes</h2>
+<input id="nuevoPaciente" placeholder="Nombre del paciente">
+<input id="nuevoPin" type="password" inputmode="numeric" maxlength="4" placeholder="PIN de 4 digitos">
+<input id="nuevoCupo" type="number" placeholder="Cupo mensual" value="20">
+<button id="agregarPaciente">Agregar paciente</button>
+<div id="pacientes"></div>
+</section>
+
+<section class="admin-section">
 <h2>Habilitar genetica</h2>
-<input id="pacienteGenetica" placeholder="Paciente" value="Matias">
+<select id="pacienteGenetica"></select>
 <input id="nuevaGenetica" placeholder="Nueva genetica">
 <input id="gramosGenetica" type="number" placeholder="Gramos habilitados" value="20">
 <button id="agregarGenetica">Agregar</button>

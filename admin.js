@@ -1,7 +1,11 @@
 import { db, ref, push, onValue, update } from "./firebase.js";
 
+const pacientes = document.getElementById("pacientes");
 const pedidos = document.getElementById("pedidos");
 const geneticas = document.getElementById("geneticas");
+const pacienteGenetica = document.getElementById("pacienteGenetica");
+
+let pacientesRaw = {};
 
 const gramos = (value) => {
   const number = Number(value);
@@ -18,12 +22,24 @@ const escapeHtml = (value) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
+const pacienteItems = () =>
+  Object.entries(pacientesRaw)
+    .map(([pin, paciente]) => ({
+      pin,
+      nombre: paciente.nombre || "",
+      cupo: gramos(paciente.cupo || 20),
+      activo: paciente.activo !== false,
+    }))
+    .filter((paciente) => paciente.nombre)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
 const normalizarGenetica = (id, value) => {
   if (typeof value === "string") {
     return {
       id,
       nombre: value,
       paciente: "Matias",
+      pacientePin: "",
       gramos: 20,
       activa: true,
     };
@@ -33,24 +49,52 @@ const normalizarGenetica = (id, value) => {
     id,
     nombre: value.nombre || value.genetica || "",
     paciente: value.paciente || "Matias",
+    pacientePin: value.pacientePin || "",
     gramos: gramos(value.gramos || value.cupo || 0),
     activa: value.activa !== false,
   };
 };
 
+document.getElementById("agregarPaciente").onclick = async () => {
+  const nombre = document.getElementById("nuevoPaciente").value.trim();
+  const pin = document.getElementById("nuevoPin").value.trim();
+  const cupo = gramos(document.getElementById("nuevoCupo").value);
+
+  if (!nombre || !/^\d{4}$/.test(pin) || cupo <= 0) {
+    alert("Completar nombre, PIN de 4 digitos y cupo");
+    return;
+  }
+
+  try {
+    await update(ref(db, `pacientes/${pin}`), {
+      nombre,
+      cupo,
+      activo: true,
+      fecha: new Date().toISOString(),
+    });
+    document.getElementById("nuevoPaciente").value = "";
+    document.getElementById("nuevoPin").value = "";
+  } catch (error) {
+    console.error("Error al agregar paciente:", error);
+    alert("No se pudo agregar el paciente.");
+  }
+};
+
 document.getElementById("agregarGenetica").onclick = async () => {
-  const paciente = document.getElementById("pacienteGenetica").value.trim();
+  const pin = pacienteGenetica.value;
+  const paciente = pacientesRaw[pin];
   const nombre = document.getElementById("nuevaGenetica").value.trim();
   const cantidad = gramos(document.getElementById("gramosGenetica").value);
 
-  if (!paciente || !nombre || cantidad <= 0) {
+  if (!pin || !paciente || !nombre || cantidad <= 0) {
     alert("Completar paciente, genetica y gramos");
     return;
   }
 
   try {
     await push(ref(db, "geneticas"), {
-      paciente,
+      pacientePin: pin,
+      paciente: paciente.nombre,
       nombre,
       gramos: cantidad,
       activa: true,
@@ -66,6 +110,7 @@ document.getElementById("agregarGenetica").onclick = async () => {
 const confirmarPedido = async (id, pedido) => {
   try {
     await push(ref(db, "entregas"), {
+      pacientePin: pedido.pacientePin || "",
       persona: pedido.persona,
       genetica: pedido.genetica,
       gramos: gramos(pedido.gramos),
@@ -84,6 +129,24 @@ const confirmarPedido = async (id, pedido) => {
     alert("No se pudo confirmar el pedido.");
   }
 };
+
+onValue(ref(db, "pacientes"), (snap) => {
+  pacientesRaw = snap.val() || {};
+  const items = pacienteItems();
+
+  pacientes.innerHTML = items.length
+    ? items.map((paciente) => `
+        <div class="genetica-row">
+          <strong>${escapeHtml(paciente.nombre)}</strong>
+          <span>PIN ${escapeHtml(paciente.pin)} · ${formatoGramos(paciente.cupo)}</span>
+        </div>
+      `).join("")
+    : `<div class="empty">Todavia no hay pacientes cargados.</div>`;
+
+  pacienteGenetica.innerHTML = items.length
+    ? items.map((paciente) => `<option value="${escapeHtml(paciente.pin)}">${escapeHtml(paciente.nombre)} · ${escapeHtml(paciente.pin)}</option>`).join("")
+    : `<option value="">Cargar paciente primero</option>`;
+});
 
 onValue(ref(db, "pedidos"), (snap) => {
   const data = snap.val() || {};
