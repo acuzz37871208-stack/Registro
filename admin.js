@@ -1,11 +1,32 @@
 import { db, ref, push, onValue, update } from "./firebase.js";
 
+const ADMIN_PIN = "1010";
+const adminAcceso = document.getElementById("adminAcceso");
+const adminPanel = document.getElementById("adminPanel");
+const adminPinInput = document.getElementById("adminPinInput");
+const adminPinBtn = document.getElementById("adminPinBtn");
+const adminPinMensaje = document.getElementById("adminPinMensaje");
 const pacientes = document.getElementById("pacientes");
 const pedidos = document.getElementById("pedidos");
 const geneticas = document.getElementById("geneticas");
 const pacienteGenetica = document.getElementById("pacienteGenetica");
 
 let pacientesRaw = {};
+
+const desbloquearAdmin = () => {
+  if (adminPinInput.value.trim() !== ADMIN_PIN) {
+    adminPinMensaje.textContent = "Clave incorrecta.";
+    return;
+  }
+
+  adminAcceso.classList.add("hidden");
+  adminPanel.classList.remove("hidden");
+};
+
+adminPinBtn.onclick = desbloquearAdmin;
+adminPinInput.onkeydown = (event) => {
+  if (event.key === "Enter") desbloquearAdmin();
+};
 
 const gramos = (value) => {
   const number = Number(value);
