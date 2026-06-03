@@ -1,6 +1,3 @@
-import { db, ref, push, onValue, update } from "./firebase.js";
-
-const ADMIN_PIN = "1010";
 const adminAcceso = document.getElementById("adminAcceso");
 const adminPanel = document.getElementById("adminPanel");
 const adminPinInput = document.getElementById("adminPinInput");
@@ -11,21 +8,66 @@ const pedidos = document.getElementById("pedidos");
 const geneticas = document.getElementById("geneticas");
 const pacienteGenetica = document.getElementById("pacienteGenetica");
 
+let adminPin = "";
 let pacientesRaw = {};
+let pedidosRaw = {};
+let geneticasRaw = {};
+let refreshTimer = null;
 
-const desbloquearAdmin = () => {
-  if (adminPinInput.value.trim() !== ADMIN_PIN) {
-    adminPinMensaje.textContent = "Clave incorrecta.";
-    return;
+const api = async (body) => {
+  const response = await fetch("/api/reprocann", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...body, adminPin }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) {
+    throw new Error(data.error || "No se pudo completar la operacion");
   }
+  return data;
+};
 
-  adminAcceso.classList.add("hidden");
-  adminPanel.classList.remove("hidden");
+const desbloquearAdmin = async () => {
+  adminPin = adminPinInput.value.trim();
+  adminPinBtn.disabled = true;
+  adminPinMensaje.textContent = "Verificando...";
+
+  try {
+    const result = await api({ action: "admin-data" });
+    cargarSnapshot(result.data);
+    adminAcceso.classList.add("hidden");
+    adminPanel.classList.remove("hidden");
+    adminPinMensaje.textContent = "";
+    clearInterval(refreshTimer);
+    refreshTimer = setInterval(() => refrescar(true), 15000);
+  } catch (error) {
+    adminPinMensaje.textContent = error.message === "Admin PIN invalido" ? "Clave incorrecta." : error.message;
+  } finally {
+    adminPinBtn.disabled = false;
+  }
 };
 
 adminPinBtn.onclick = desbloquearAdmin;
 adminPinInput.onkeydown = (event) => {
   if (event.key === "Enter") desbloquearAdmin();
+};
+
+const refrescar = async (silent = false) => {
+  try {
+    const result = await api({ action: "admin-data" });
+    cargarSnapshot(result.data);
+  } catch (error) {
+    if (!silent) alert(error.message);
+  }
+};
+
+const cargarSnapshot = (data) => {
+  pacientesRaw = data.pacientes || {};
+  pedidosRaw = data.pedidos || {};
+  geneticasRaw = data.geneticas || {};
+  renderPacientes();
+  renderPedidos();
+  renderGeneticas();
 };
 
 const gramos = (value) => {
@@ -87,14 +129,10 @@ document.getElementById("agregarPaciente").onclick = async () => {
   }
 
   try {
-    await update(ref(db, `pacientes/${pin}`), {
-      nombre,
-      cupo,
-      activo: true,
-      fecha: new Date().toISOString(),
-    });
+    const result = await api({ action: "add-patient", nombre, pin, cupo });
     document.getElementById("nuevoPaciente").value = "";
     document.getElementById("nuevoPin").value = "";
+    cargarSnapshot(result.data);
   } catch (error) {
     console.error("Error al agregar paciente:", error);
     alert("No se pudo agregar el paciente.");
@@ -103,47 +141,28 @@ document.getElementById("agregarPaciente").onclick = async () => {
 
 document.getElementById("agregarGenetica").onclick = async () => {
   const pin = pacienteGenetica.value;
-  const paciente = pacientesRaw[pin];
   const nombre = document.getElementById("nuevaGenetica").value.trim();
   const cantidad = gramos(document.getElementById("gramosGenetica").value);
 
-  if (!pin || !paciente || !nombre || cantidad <= 0) {
+  if (!pin || !nombre || cantidad <= 0) {
     alert("Completar paciente, genetica y gramos");
     return;
   }
 
   try {
-    await push(ref(db, "geneticas"), {
-      pacientePin: pin,
-      paciente: paciente.nombre,
-      nombre,
-      gramos: cantidad,
-      activa: true,
-      fecha: new Date().toISOString(),
-    });
+    const result = await api({ action: "add-genetica", pin, nombre, gramos: cantidad });
     document.getElementById("nuevaGenetica").value = "";
+    cargarSnapshot(result.data);
   } catch (error) {
     console.error("Error al agregar genetica:", error);
     alert("No se pudo agregar la genetica.");
   }
 };
 
-const confirmarPedido = async (id, pedido) => {
+const confirmarPedido = async (id) => {
   try {
-    await push(ref(db, "entregas"), {
-      pacientePin: pedido.pacientePin || "",
-      persona: pedido.persona,
-      genetica: pedido.genetica,
-      gramos: gramos(pedido.gramos),
-      fecha: new Date().toISOString(),
-      pedidoId: id,
-    });
-
-    await update(ref(db, `pedidos/${id}`), {
-      estado: "confirmado",
-      confirmadoEn: new Date().toISOString(),
-    });
-
+    const result = await api({ action: "confirm-order", id });
+    cargarSnapshot(result.data);
     alert("Pedido confirmado como entrega");
   } catch (error) {
     console.error("Error al confirmar pedido:", error);
@@ -151,8 +170,7 @@ const confirmarPedido = async (id, pedido) => {
   }
 };
 
-onValue(ref(db, "pacientes"), (snap) => {
-  pacientesRaw = snap.val() || {};
+const renderPacientes = () => {
   const items = pacienteItems();
 
   pacientes.innerHTML = items.length
@@ -167,11 +185,10 @@ onValue(ref(db, "pacientes"), (snap) => {
   pacienteGenetica.innerHTML = items.length
     ? items.map((paciente) => `<option value="${escapeHtml(paciente.pin)}">${escapeHtml(paciente.nombre)} · ${escapeHtml(paciente.pin)}</option>`).join("")
     : `<option value="">Cargar paciente primero</option>`;
-});
+};
 
-onValue(ref(db, "pedidos"), (snap) => {
-  const data = snap.val() || {};
-  const pendientes = Object.entries(data)
+const renderPedidos = () => {
+  const pendientes = Object.entries(pedidosRaw)
     .map(([id, pedido]) => ({
       id,
       ...pedido,
@@ -202,14 +219,13 @@ onValue(ref(db, "pedidos"), (snap) => {
   pendientes.forEach((pedido) => {
     const boton = document.querySelector(`[data-pedido-id="${pedido.id}"]`);
     if (boton) {
-      boton.onclick = () => confirmarPedido(pedido.id, pedido);
+      boton.onclick = () => confirmarPedido(pedido.id);
     }
   });
-});
+};
 
-onValue(ref(db, "geneticas"), (snap) => {
-  const data = snap.val() || {};
-  const items = Object.entries(data)
+const renderGeneticas = () => {
+  const items = Object.entries(geneticasRaw)
     .map(([id, value]) => normalizarGenetica(id, value))
     .filter((genetica) => genetica.nombre)
     .sort((a, b) => a.paciente.localeCompare(b.paciente) || a.nombre.localeCompare(b.nombre));
@@ -224,4 +240,4 @@ onValue(ref(db, "geneticas"), (snap) => {
         </div>
       `).join("")
     : `<div class="empty">Todavia no hay geneticas habilitadas.</div>`;
-});
+};

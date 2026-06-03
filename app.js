@@ -1,6 +1,3 @@
-import { db, ref, push, onValue } from "./firebase.js";
-
-const DEFAULT_USER = "Matias";
 const LIMITE_MENSUAL = 20;
 const DEFAULT_GENETICAS = ["Craig"];
 
@@ -17,12 +14,25 @@ const usuario = document.getElementById("usuario");
 const fill = document.getElementById("fill");
 
 let pacienteActual = null;
-let pacientesRaw = {};
 let entregasRaw = {};
 let pedidosRaw = {};
 let geneticasRaw = {};
 let pedidoEnCurso = false;
 let mensajePedido = "";
+let refreshTimer = null;
+
+const api = async (body) => {
+  const response = await fetch("/api/reprocann", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) {
+    throw new Error(data.error || "No se pudo completar la operacion");
+  }
+  return data;
+};
 
 const normalizar = (value) =>
   String(value || "")
@@ -61,7 +71,7 @@ const normalizarGenetica = (value) => {
   if (typeof value === "string") {
     return {
       nombre: value,
-      paciente: DEFAULT_USER,
+      paciente: pacienteActual?.nombre || "Matias",
       pacientePin: "",
       gramos: LIMITE_MENSUAL,
       activa: true,
@@ -70,56 +80,61 @@ const normalizarGenetica = (value) => {
 
   return {
     nombre: value.nombre || value.genetica || "",
-    paciente: value.paciente || DEFAULT_USER,
+    paciente: value.paciente || pacienteActual?.nombre || "Matias",
     pacientePin: value.pacientePin || "",
     gramos: gramos(value.gramos || value.cupo || LIMITE_MENSUAL),
     activa: value.activa !== false,
   };
 };
 
-const perteneceAPaciente = (registro) => {
-  if (!pacienteActual) return false;
-  if (registro.pacientePin) return registro.pacientePin === pacienteActual.pin;
-  return normalizar(registro.persona) === normalizar(pacienteActual.nombre);
-};
-
 const esDelMes = (registro, mes, anio) =>
   registro.fechaDate.getMonth() === mes && registro.fechaDate.getFullYear() === anio;
 
-const notificarPedido = async (pedido) => {
+const cargarDatos = async (silent = false) => {
+  if (!pacienteActual?.pin) return;
+
   try {
-    await fetch("/api/notificar-pedido", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(pedido),
-    });
+    const result = await api({ action: "patient-data", pin: pacienteActual.pin });
+    pacienteActual = result.data.paciente;
+    entregasRaw = result.data.entregas || {};
+    pedidosRaw = result.data.pedidos || {};
+    geneticasRaw = result.data.geneticas || {};
+    usuario.textContent = pacienteActual.nombre;
+    render();
   } catch (error) {
-    console.warn("No se pudo enviar la notificacion:", error);
+    if (!silent) {
+      pinMensaje.textContent = error.message;
+    }
   }
 };
 
-const desbloquear = (pin) => {
-  const paciente = pacientesRaw[pin];
-
+const desbloquear = async (pin) => {
   if (!/^\d{4}$/.test(pin)) {
     pinMensaje.textContent = "Ingresá una clave de 4 dígitos.";
     return;
   }
 
-  if (!paciente || paciente.activo === false) {
-    pinMensaje.textContent = "Clave incorrecta.";
-    return;
-  }
+  pinBtn.disabled = true;
+  pinMensaje.textContent = "Verificando...";
 
-  pacienteActual = {
-    pin,
-    nombre: paciente.nombre || DEFAULT_USER,
-    cupo: gramos(paciente.cupo || LIMITE_MENSUAL) || LIMITE_MENSUAL,
-  };
-  usuario.textContent = pacienteActual.nombre;
-  acceso.classList.add("hidden");
-  panel.classList.remove("hidden");
-  render();
+  try {
+    const result = await api({ action: "patient-data", pin });
+    pacienteActual = result.data.paciente;
+    entregasRaw = result.data.entregas || {};
+    pedidosRaw = result.data.pedidos || {};
+    geneticasRaw = result.data.geneticas || {};
+    usuario.textContent = pacienteActual.nombre;
+    acceso.classList.add("hidden");
+    panel.classList.remove("hidden");
+    pinMensaje.textContent = "";
+    render();
+    clearInterval(refreshTimer);
+    refreshTimer = setInterval(() => cargarDatos(true), 15000);
+  } catch (error) {
+    pinMensaje.textContent = error.message === "Clave incorrecta" ? "Clave incorrecta." : error.message;
+  } finally {
+    pinBtn.disabled = false;
+  }
 };
 
 pinBtn.onclick = () => desbloquear(pinInput.value.trim());
@@ -139,18 +154,14 @@ const renderPedido = ({ restantePedido, pendientesDelMes, entregasDelMes }) => {
       }));
 
   const geneticas = geneticasBase
-    .filter((genetica) => {
-      if (!genetica.activa) return false;
-      if (genetica.pacientePin) return genetica.pacientePin === pacienteActual.pin;
-      return normalizar(genetica.paciente) === normalizar(pacienteActual.nombre);
-    })
+    .filter((genetica) => genetica.activa)
     .map((genetica) => {
       const entregado = entregasDelMes
         .filter((entrega) => normalizar(entrega.genetica) === normalizar(genetica.nombre))
         .reduce((sum, entrega) => sum + entrega.gramos, 0);
       const pendiente = pendientesDelMes
-        .filter((pedido) => normalizar(pedido.genetica) === normalizar(genetica.nombre))
-        .reduce((sum, pedido) => sum + pedido.gramos, 0);
+        .filter((pedidoItem) => normalizar(pedidoItem.genetica) === normalizar(genetica.nombre))
+        .reduce((sum, pedidoItem) => sum + pedidoItem.gramos, 0);
       const usado = entregado + pendiente;
       const disponible = Math.max(0, Math.min(restantePedido, genetica.gramos - usado));
 
@@ -217,20 +228,16 @@ const renderPedido = ({ restantePedido, pendientesDelMes, entregasDelMes }) => {
     render();
 
     try {
-      const nuevoPedido = {
-        pacientePin: pacienteActual.pin,
-        persona: pacienteActual.nombre,
+      const result = await api({
+        action: "create-order",
+        pin: pacienteActual.pin,
         genetica,
         gramos: cantidad,
-        estado: "pendiente",
-        fecha: new Date().toISOString(),
-        mes: mesActual(),
-        avisoAdmin: "pendiente",
-      };
+      });
 
-      await push(ref(db, "pedidos"), nuevoPedido);
-      await notificarPedido(nuevoPedido);
-
+      entregasRaw = result.data.entregas || {};
+      pedidosRaw = result.data.pedidos || {};
+      geneticasRaw = result.data.geneticas || {};
       pedidoEnCurso = false;
       mensajePedido = "Pedido registrado. Te aviso cuando este coordinado.";
       render();
@@ -253,13 +260,11 @@ const render = () => {
   const limiteMensual = pacienteActual.cupo || LIMITE_MENSUAL;
 
   const entregas = Object.values(entregasRaw)
-    .filter(perteneceAPaciente)
     .map(normalizarEntrega)
     .filter((entrega) => !Number.isNaN(entrega.fechaDate.getTime()))
     .sort((a, b) => b.fechaDate - a.fechaDate);
 
   const pedidos = Object.values(pedidosRaw)
-    .filter(perteneceAPaciente)
     .map(normalizarEntrega)
     .filter((registro) => !Number.isNaN(registro.fechaDate.getTime()));
 
@@ -319,22 +324,3 @@ const render = () => {
   fill.style.width = `${porcentaje}%`;
   fill.style.background = comprometido > limiteMensual ? "#ff5c7a" : "#00ffc6";
 };
-
-onValue(ref(db, "pacientes"), (snap) => {
-  pacientesRaw = snap.val() || {};
-});
-
-onValue(ref(db, "entregas"), (snap) => {
-  entregasRaw = snap.val() || {};
-  render();
-});
-
-onValue(ref(db, "pedidos"), (snap) => {
-  pedidosRaw = snap.val() || {};
-  render();
-});
-
-onValue(ref(db, "geneticas"), (snap) => {
-  geneticasRaw = snap.val() || {};
-  render();
-});
